@@ -1,1 +1,18 @@
+# Evita subir el entorno virtual al repositorio
 venv/
+
+#
+# Evita subir archivos de configuración de editores o IDEs
+.vscode/
+.idea/
+
+# Evita archivos temporales LaTeX
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
