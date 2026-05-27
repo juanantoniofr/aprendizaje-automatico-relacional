@@ -16,6 +16,8 @@ _Breve introducción a las técnicas empleadas (como Scikit-Learn o NetworkX) y 
 
 Para la representación y procesamiento de los datos relacionales se ha empleado la librería de Python _NetworkX_. Esta herramienta permite modelar la red de documentos científicos como un grafo matemático, facilitando la extracción de métricas topológicas complejas. Específicamente, nos apoyamos en la teoría de grafos para calcular medidas topológicas de centralidad, densidad local (coeficiente de _clustering_) y algoritmos de detección de comunidades para identificar subestructuras cohesivas dentro de la red de citas.
 
+Para la etapa de modelado y clasificación, se ha empleado la librería _Scikit-Learn_. El enfoque adoptado incluye el entrenamiento y la evaluación comparativa de cuatro algoritmos de aprendizaje automático supervisado con distintas naturalezas teóricas: algoritmos basados en instancias (_k-Vecinos más Cercanos_, kNN), modelos de particionado recursivo (Árboles de Decisión), aproximaciones probabilísticas (_Naive Bayes_ Gaussiano) y modelos conexionistas (Redes Neuronales de tipo Perceptrón Multicapa o MLP).
+
 ### Trabajo Relacionado:
 
 El análisis y clasificación de nodos en redes interconectadas es un problema ampliamente abordado en la literatura. Como referencia fundamental para nuestro enfoque, destaca el trabajo de Sen _et al._ (2008)[1] sobre clasificación colectiva en datos de redes, en el cual los autores emplean precisamente el conjunto de datos Cora para predecir la temática de los artículos científicos basándose en la correlación de sus enlaces y propiedades. Su investigación demuestra que aprovechar la estructura subyacente de la red (por ejemplo, mediante algoritmos iterativos o inferencia aproximada) mejora significativamente el rendimiento frente a clasificadores tradicionales que tratan cada documento de forma independiente.
@@ -38,9 +40,36 @@ Para enriquecer la representación de cada publicación científica más allá d
 
 Todas estas propiedades estructurales fueron consolidadas en una única estructura de datos tabular, indexada por el identificador de cada artículo, lista para ser combinada estadísticamente con las propiedades nativas de los documentos.
 
+### C. Configuración Experimental y Modelado
+
+Para la tarea de clasificación de los nodos, se construyó un conjunto de datos consolidado uniendo las 1433 características nativas de los artículos (el vector de palabras) con las características relacionales topológicas extraídas en la fase anterior (centralidad, _clustering_ y comunidad).
+
+Para garantizar una evaluación justa de la capacidad de generalización de los algoritmos, el conjunto de datos se dividió en subconjuntos de entrenamiento (80%) y prueba (20%) mediante el método de validación por retención (_holdout_). Como **decisión de diseño fundamental**, se aplicó una partición estratificada en esta división. Dado que el análisis exploratorio previo reveló un notable desbalanceo de clases (siendo el tema "Neural_Networks" mayoritario y "Rule_Learning" marcadamente minoritario), la estratificación resulta imperativa para preservar la proporción real de las clases en ambos subconjuntos y evitar sesgos en el entrenamiento.
+
+El ajuste de los hiperparámetros de los cuatro modelos base se llevó a cabo mediante una búsqueda en rejilla (_Grid Search_) utilizando validación cruzada estratificada de 5 pliegues (_5-fold cross validation_). Para la selección de la mejor configuración se optó por la métrica _F1-macro_ en lugar de la exactitud global (_Accuracy_). Esta **decisión de diseño** se fundamenta en que el _F1-macro_ calcula el promedio no ponderado de la medida F1 de cada clase, obligando al modelo a penalizar los errores cometidos en las clases minoritarias. De este modo, se asegura que el clasificador se esfuerce en identificar correctamente temáticas con escasos ejemplos, en lugar de sobreajustarse a predecir siempre la clase mayoritaria.
+
 ## IV. Resultados:
 
-Detalle de la configuración de los experimentos, los datos obtenidos y, muy importante, el análisis crítico y comparativa entre modelos.
+_Detalle de la configuración de los experimentos, los datos obtenidos y, muy importante, el análisis crítico y comparativa entre modelos._
+
+Los experimentos iniciales tuvieron como propósito establecer una línea base de rendimiento mediante la evaluación de los cuatro modelos construidos (kNN, Naive Bayes, Árbol de Decisión y MLP) utilizando el conjunto de datos integrado (características nativas más relacionales). Tras la optimización de los hiperparámetros mediante validación cruzada en el conjunto de entrenamiento, los modelos definitivos fueron evaluados sobre el 20% de los datos reservados para prueba.
+
+En la Tabla I se resume el rendimiento comparativo de los modelos sobre el subconjunto de validación, destacando su exactitud global y su rendimiento _F1-macro_.
+
+**TABLA I. RENDIMIENTO DE LOS MODELOS BASE EN EL CONJUNTO DE PRUEBA**
+
+| Modelo                     | Exactitud (Accuracy) | F1-macro  | Precision (macro) | Recall (macro) |
+| :------------------------- | :------------------: | :-------: | :---------------: | :------------: |
+| **Árbol de Decisión**      |      **0.771**       | **0.758** |     **0.762**     |   **0.760**    |
+| Perceptrón Multicapa (MLP) |        0.730         |   0.717   |       0.721       |     0.717      |
+| Naive Bayes Gaussiano      |        0.452         |   0.428   |       0.437       |     0.422      |
+| k-Vecinos más Cercanos     |        0.422         |   0.416   |       0.469       |     0.406      |
+
+_Análisis Crítico:_
+
+Como se observa en los resultados empíricos, el Árbol de Decisión obtuvo con diferencia el mejor rendimiento de generalización, alcanzando un _F1-macro_ de 0.758, seguido por la red neuronal MLP. Por el contrario, los modelos kNN y Naive Bayes mostraron un desempeño significativamente deficiente (ambos por debajo del 0.43 en F1-macro). El éxito del Árbol de Decisión (configurado con una profundidad máxima de 20 y criterio de Gini) sugiere que la combinación de las variables relacionales y textuales requiere reglas de corte jerárquicas y no lineales para discriminar eficazmente la temática de los artículos científicos.
+
+El análisis de la matriz de confusión del Árbol de Decisión demostró que el uso de la métrica _F1-macro_ durante el ajuste de hiperparámetros cumplió su objetivo con éxito: el clasificador mantuvo tasas de verdaderos positivos consistentes a lo largo de todas las temáticas, logrando predecir de forma competente incluso las clases menos representadas, como "Rule_Learning", evitando así el colapso de la red hacia la clase dominante.
 
 ## V. Conclusiones:
 
@@ -48,7 +77,11 @@ Resumen de lo conseguido e ideas de trabajo futuro.
 
 ## Referencias:
 
-Listado bibliográfico.
+_Listado bibliográfico._
+
+- _[Ref 1]_ Sen, P., Namata, G., Bilgic, M., Getoor, L., Gallagher, B., & Eliassi-Rad, T. (2008). Collective Classification in Network Data. _AI Magazine_, 29(3), 93-106.
+- _[Ref 2]_ Fortunato, S. (2010). "Community detection in graphs". _Physics Reports_, 486(3-5): 75-174. _(Para justificar la detección de comunidades)_.
+- _[Ref 3]_ Koschützki, D., et al. (2005). "Centrality Indices". In Network Analysis: Methodological Foundations, pp. 16-61, LNCS 3418, Springer-Verlag. _(Para justificar la centralidad)_.
 
 ---
 
@@ -60,14 +93,7 @@ Listado bibliográfico.
 
 Hacer esto os garantizará cumplir con los criterios de evaluación del profesor sin tener que redactar seis páginas desde cero en la última semana.
 
-### Para la sección "REFERENCIAS"
-
-**(Asegúrate de tener estas referencias en el listado bibliográfico al final del documento, ya que están citadas en el texto anterior):**
-
-- _[Ref 1]_ Sen, P., Namata, G., Bilgic, M., Getoor, L., Gallagher, B., & Eliassi-Rad, T. (2008). Collective Classification in Network Data. _AI Magazine_, 29(3), 93-106.
-- _[Ref 2]_ Fortunato, S. (2010). "Community detection in graphs". _Physics Reports_, 486(3-5): 75-174. _(Para justificar la detección de comunidades)_.
-- _[Ref 3]_ Koschützki, D., et al. (2005). "Centrality Indices". In Network Analysis: Methodological Foundations, pp. 16-61, LNCS 3418, Springer-Verlag. _(Para justificar la centralidad)_.
-
----
-
 **💡 Consejo para tu compañero y tú:** Al pegar este texto en vuestro archivo `borrador_memoria.md`, recordad actualizar los números entre corchetes `[ ]` para que coincidan secuencialmente con el orden en el que iréis listando la bibliografía al final de vuestro artículo IEEE.
+
+**💡 Consejo:**
+Recuerda que en el formato de artículo de la IEEE, las tablas tienen una numeración romana (Tabla I, Tabla II, etc.). He llamado a esta "Tabla II" asumiendo que quizá tengas otra tabla antes en tu sección de Exploración de Datos (EDA). Si es vuestra primera y única tabla, cámbiale el nombre a "Tabla I".
