@@ -34,6 +34,7 @@
 
 \begin{document}
 
+
 \title{Clasificación Relacional de Documentos Científicos: Un Enfoque Topológico sobre el Dataset Cora}
 
 
@@ -56,6 +57,8 @@
 }
 
 \maketitle
+\thispagestyle{plain} % fuerza número en la primera página
+\pagestyle{plain}     % resto de páginas
 
 
 % Resumen
@@ -86,7 +89,11 @@ A diferencia del aprendizaje automático tradicional, que asume la independencia
 el aprendizaje relacional aprovecha las correlaciones inherentes en los enlaces entre nodos para mejorar
 la capacidad predictiva de los modelos.
 
-En este trabajo en curso, se aborda el problema de la clasificación de nodos en redes de citación científica
+En numerosos grafos del mundo real aparece el fenómeno conocido como *homofilia*, según el cual los nodos conectados tienden a compartir características similares. En redes de citas científicas como el dataset Cora, este comportamiento se manifiesta en que los artículos pertenecientes a una misma temática suelen citar trabajos relacionados del mismo ámbito de investigación.
+
+Esta propiedad resulta especialmente relevante en nuestro contexto, ya que permite aprovechar no solo las características individuales de cada nodo, sino también la información estructural derivada de sus conexiones. Las *Graph Neural Networks* (GNNs) explotan precisamente esta dependencia relacional mediante mecanismos de agregación de vecindario, propagando información entre nodos próximos del grafo para mejorar tareas como la clasificación de documentos.
+
+En este trabajo, se aborda el problema de la clasificación de nodos en redes de citación científica
 utilizando el conjunto de datos Cora. El enfoque adoptado consiste en la extracción manual de características
 topológicas para enriquecer las propiedades nativas de los documentos. El resto de este documento detalla los
 preliminares teóricos (Sección II), la metodología y decisiones de diseño adoptadas hasta la fecha (Sección III), 
@@ -107,45 +114,107 @@ de redes, en el cual los autores emplean el conjunto de datos Cora para predecir
 la correlación de sus enlaces y propiedades. Su investigación demuestra que aprovechar la estructura subyacente de la red 
 mejora significativamente el rendimiento frente a clasificadores tradicionales que tratan cada documento de forma independiente.
 
+La clasificación de nodos en grafos constituye uno de los problemas más relevantes dentro del aprendizaje automático sobre estructuras 
+relacionales. A diferencia de los enfoques tradicionales de aprendizaje supervisado, donde cada instancia se considera de manera 
+independiente, en los grafos existe información adicional derivada de las relaciones entre nodos, lo que permite explotar dependencias 
+estructurales durante el proceso de aprendizaje.
+
+En muchos grafos reales aparece el fenómeno conocido como \textit{homofilia}, según el cual los nodos conectados tienden a compartir 
+propiedades similares. En redes de citas científicas como el dataset Cora, esta propiedad se manifiesta en que artículos pertenecientes 
+a áreas temáticas similares suelen citar trabajos relacionados del mismo ámbito de investigación. Como consecuencia, la estructura del 
+grafo aporta información semántica complementaria a las características propias de cada nodo.
+
+La clasificación de nodos puede abordarse explotando diferentes tipos de correlaciones presentes en la red. De forma general, 
+pueden distinguirse tres fuentes principales de información: (1) los atributos propios del nodo, (2) los atributos de los nodos vecinos 
+y (3) las etiquetas de los nodos vecinos. Mientras que los enfoques clásicos de aprendizaje automático se centran únicamente en las
+características individuales de cada instancia, los modelos basados en grafos incorporan además información contextual derivada de la 
+conectividad entre nodos.
+
+Las \textit{Graph Neural Networks} (GNNs) explotan precisamente estas dependencias relacionales mediante mecanismos de agregación y
+propagación de información entre vecinos, conocidos como \textit{message passing}. En este proceso, cada nodo actualiza iterativamente 
+su representación interna utilizando tanto sus propias características como la información agregada de su vecindario local.
+
+Entre las arquitecturas más relevantes destacan las \textit{Graph Convolutional Networks} (GCN), que introducen operaciones 
+convolucionales adaptadas a grafos mediante normalización de la matriz de adyacencia, y modelos posteriores como GraphSAGE, 
+que permiten generalizar el aprendizaje mediante funciones de agregación inductivas.
+
+En este trabajo se estudia el aprovechamiento de las dos primeras fuentes de correlación: los atributos propios 
+de cada nodo y los atributos de sus vecinos dentro de la estructura del grafo. Para ello se emplea el dataset Cora, ampliamente utilizado 
+como benchmark en tareas de clasificación de nodos sobre grafos homofílicos.
+
 
 \section{Metodología}
 
 
-\begin{itemize}
+\section*{A. Dataset Cora y Análisis Exploratorio}
 
-\item A. Análisis Exploratorio de los Datos (EDA)
-El conjunto de datos Cora original consta de 2708 publicaciones científicas divididas en 7 clases temáticas, y 5429 enlaces
-de citación. La matriz de propiedades nativas está compuesta por un vocabulario binario de 1433 palabras. El análisis 
-exploratorio reveló una extrema dispersión en los datos textuales (un 98.73% de ceros, con un promedio de solo 18.17 palabras
-presentes por artículo) y un marcado desbalanceo de clases, siendo "Neural\_Networks" la clase dominante (818 artículos) 
-frente a clases minoritarias como "Rule\_Learning" (180 artículos).
+El conjunto de datos Cora original consta de 2708 publicaciones científicas divididas en 7 clases temáticas, vinculadas mediante 5429 
+enlaces de citación. La matriz de propiedades nativas de los documentos está compuesta por un vocabulario binario de 1433 palabras.
 
-\item B. Construcción del Grafo y Extracción de Características
-Como \textbf{decisión de diseño}, la red de citas se modeló como un grafo no dirigido. Esto permitió la fusión natural de citas
-recíprocas en 5278 aristas únicas y garantizó la convergencia estructural para los algoritmos topológicos aplicados posteriormente.
-Se extrajeron las siguientes métricas relacionales para cada nodo:
+El análisis exploratorio reveló una extrema dispersión en los datos textuales, con un 98.73\% de ceros y un promedio de solo 18.17 palabras
+clave presentes por artículo. Además, se evidenció un marcado desbalanceo de clases, siendo \textit{Neural\_Networks} la clase dominante 
+con 818 artículos, frente a temáticas marcadamente minoritarias como \textit{Rule\_Learning} con 180 instancias (Fig.~\ref{fig:dist-clases}).
 
-\begin{itemize}
-\item \textbf{Centralidad de Intermediación (\textit{Betweenness Centrality}):} Se eligió por su alta capacidad predictiva para detectar artículos que actúan como nodos puente entre áreas temáticas.
-\item \textbf{Coeficiente de Clustering:} Calculado para medir la tendencia de las publicaciones a agruparse en vecindarios densos interconectados.
-\item \textbf{Detección de Comunidades (Louvain):} Se seleccionó Louvain frente a otras alternativas para maximizar de forma eficiente la modularidad del particionado en el grafo no dirigido.
-\end{itemize}
-
-\item C. Configuración Experimental (Modelado Base)
-Para establecer la línea base de clasificación, se construyó un conjunto de datos consolidado uniendo las características textuales
-y relacionales. Se dividieron los datos en conjuntos de entrenamiento (80%) y prueba (20%). Como \textbf{decisión de diseño fundamental}, 
-se aplicó un muestreo estratificado para combatir el desbalanceo de clases evidenciado en el EDA. Asimismo, la optimización de los 
-hiperparámetros mediante búsqueda en rejilla se guio exclusivamente por la métrica \textit{F1-macro} usando validación cruzada de 5 pliegues,
-obligando a los modelos a penalizar los errores en las temáticas minoritarias y evitando el sobreajuste a la clase mayoritaria.
-\end{itemize}
+Asimismo, la distribución del número de palabras activas por documento (Fig.~\ref{fig:dist-palabras}) confirma la alta dispersión del espacio
+de atributos nativos, con una fuerte concentración en valores bajos.
 
 \begin{figure}
   \centering
   \includegraphics[width=\columnwidth]{figuras/distribucion_clases_cora.png}
   \caption{Distribución de clases del dataset Cora}
-  \label{fig:ejemplo}
+  \label{fig:dist-clases}
 \end{figure}
 
+\begin{figure}
+  \centering
+  \includegraphics[width=\columnwidth]{figuras/distribucion_palabras_por_articulo_cora.png}
+  \caption{Distribución de palabras activas por artículo en Cora}
+  \label{fig:dist-palabras}
+\end{figure}
+
+\section*{B. Arquitectura Usada y Extracción de Características}
+
+Para la representación matemática de la información, se tomó la decisión de diseño de modelar la red de citas como un grafo no dirigido. 
+Esta arquitectura de los datos permitió la fusión de forma natural de las citas recíprocas en 5278 aristas únicas y garantizó la 
+convergencia estructural para los algoritmos topológicos aplicados posteriormente. La distribución de grados observada en la red
+(Fig.~\ref{fig:dist-grados}) evidencia una topología heterogénea, coherente con la utilidad de métricas de centralidad para caracterizar
+la influencia estructural de cada nodo.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=\columnwidth]{figuras/distribucion_grados_cora.png}
+  \caption{Distribución de grados del grafo de citación Cora}
+  \label{fig:dist-grados}
+\end{figure}
+
+Para enriquecer la representación de cada publicación científica, se extrajeron tres métricas relacionales para cada nodo:
+
+\begin{itemize}
+    \item \textbf{Centralidad de Intermediación:} Elegida por su alta capacidad predictiva para identificar artículos que actúan 
+    como ``puentes'' de información entre diversas áreas temáticas.
+    
+    \item \textbf{Coeficiente de Clustering:} Calculado para medir la tendencia de las publicaciones a agruparse en vecindarios densos
+    interconectados.
+    
+    \item \textbf{Detección de Comunidades:} Se seleccionó el algoritmo de Louvain para agrupar latentemente el grafo, asignando a cada 
+    artículo un identificador de la comunidad subyacente descubierta basándose exclusivamente en los enlaces.
+\end{itemize}
+
+La arquitectura final de los datos de entrada consolidó las 1433 variables del texto con las nuevas características relacionales en una 
+única matriz.
+
+\section*{C. Procedimiento de Entrenamiento}
+
+Para asegurar una evaluación justa de la capacidad de generalización de los algoritmos de clasificación, el conjunto de datos se dividió
+utilizando la validación por retención (\textit{holdout}), reservando el 80\% de los ejemplos para el entrenamiento de los modelos 
+y el 20\% restante para las pruebas.
+
+Como decisión de diseño, se aplicó un muestreo estratificado durante esta partición para preservar la proporción real de 
+las clases y evitar sesgos derivados del desbalanceo del conjunto de datos.
+
+El ajuste óptimo de los hiperparámetros de los cuatro modelos base se estructuró mediante una búsqueda en rejilla (\textit{GridSearchCV}). 
+Durante este proceso, se aplicó una validación cruzada estratificada de 5 pliegues (5-fold cross validation) en el conjunto de 
+entrenamiento para estimar el rendimiento a priori y seleccionar de forma robusta la mejor configuración de cada algoritmo.
 
 \section{Resultados}
 
@@ -170,11 +239,20 @@ k-Vecinos (kNN) & 0.422 & 0.416 & 0.469 & 0.406 \\
 \end{center}
 \end{table}
 
+\begin{figure}
+  \centering
+  \includegraphics[width=\columnwidth]{figuras/matriz_confusion_ArbolDecision_20260527_124833.png}
+  \caption{Matriz de confusión del modelo Árbol de Decisión en test}
+  \label{fig:mc-arbol}
+\end{figure}
+
 \textit{Análisis Crítico Inicial:}
 El Árbol de Decisión obtiene, con diferencia, la mejor capacidad de generalización inicial (\textit{F1-macro} de 0.758). Esto sugiere que la altísima
 dispersión del texto combinada con los valores topológicos requiere de reglas de corte jerárquicas estrictas para discriminar la temática de los
 artículos, algo en lo que fallan modelos probabilísticos ingenuos (Naive Bayes) o basados puramente en distancia métrica (kNN). La matriz de confusión
-demuestra que, gracias al ajuste por \textit{F1-macro}, el Árbol logra identificar competentemente las clases minoritarias.
+de la Fig.~\ref{fig:mc-arbol} demuestra que, gracias al ajuste por \textit{F1-macro}, el Árbol logra identificar competentemente las clases minoritarias.
+
+El deficiente desempeño de Naive Bayes observado en nuestros experimentos (F1-macro de 0.428) es consistente con los hallazgos de Sen et al. (2008), quienes también demostraron que este clasificador probabilístico se ve superado significativamente por otros modelos base al aplicarse sobre la red de citas Cora
 
 
 
@@ -195,8 +273,7 @@ Para completar el modelado definitivo, los próximos pasos de la investigación 
 
 \begin{thebibliography}{00}
 \bibitem{b1} P. Sen, G. Namata, M. Bilgic, L. Getoor, B. Gallagher, and T. Eliassi-Rad, "Collective Classification in Network Data," \textit{AI Magazine}, vol. 29, no. 3, pp. 93-106, 2008.
-\bibitem{b2} D. Koschützki, K. A. Lehmann, L. Peeters, S. Richter, D. Tenfelde-Podehl, and O. Zlotowski, "Centrality Indices," in \textit{Network Analysis: Methodological Foundations}, LNCS 3418, Springer-Verlag, pp. 16-61, 2005.
-\bibitem{b3} S. Fortunato, "Community detection in graphs," \textit{Physics Reports}, vol. 486, no. 3-5, pp. 75-174, 2010.
+\bibitem{b2} S. Fortunato, "Community detection in graphs," \textit{Physics Reports}, vol. 486, no. 3-5, pp. 75-174, 2010.
 
 \end{thebibliography}
 
