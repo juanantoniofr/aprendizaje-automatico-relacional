@@ -218,58 +218,69 @@ entrenamiento para estimar el rendimiento a priori y seleccionar de forma robust
 
 \section{Resultados}
 
-Los experimentos iniciales han tenido como propósito establecer un \textit{baseline} evaluando los cuatro modelos clásicos con la totalidad de las variables disponibles.
+\subsection{Aprendizaje de Representaciones Latentes (Node2Vec)}
+
+Para superar las limitaciones impuestas por la altísima dispersión del espacio de atributos nativos (98.73\% de ceros), se procedió a implementar un enfoque de aprendizaje de representaciones latentes
+ en baja dimensión. Específicamente, se utilizó el algoritmo \textit{Node2Vec}, el cual emplea caminatas aleatorias (\textit{random walks}) para capturar la estructura topológica del grafo y la 
+ homofilia de la red, generando un \textit{embedding} denso de solo 64 dimensiones para cada nodo.
+
+Se aplicó la misma configuración experimental (validación cruzada de 5 pliegues y búsqueda en rejilla) sobre estas nuevas 64 variables continuas. Los resultados comparativos frente a la extracción manual
+ de características se detallan en la Tabla \ref{tab:comparativa}.
 
 \begin{table}[htbp]
-\caption{Rendimiento de los Modelos Base en el Conjunto de Prueba}
+\caption{Comparativa de F1-macro: Características Manuales vs. Node2Vec}
 \begin{center}
-\resizebox{\columnwidth}{!}{%
-\begin{tabular}{|l|c|c|c|c|}
+\begin{tabular}{|l|c|c|}
 \hline
-\textbf{Modelo} & \textbf{Accuracy} & \textbf{F1-macro} & \textbf{Precision (macro)} & \textbf{Recall (macro)} \\
+\textbf{Modelo} & \textbf{Manual (1437 var.)} & \textbf{Node2Vec (64 var.)} \\
 \hline
-\textbf{Árbol de Decisión} & \textbf{0.771} & \textbf{0.758} & \textbf{0.762} & \textbf{0.760} \\
-Perceptrón Multicapa (MLP) & 0.730 & 0.717 & 0.721 & 0.717 \\
-Naive Bayes Gaussiano & 0.452 & 0.428 & 0.437 & 0.422 \\
-k-Vecinos (kNN) & 0.422 & 0.416 & 0.469 & 0.406 \\
+k-Vecinos (kNN) & 0.416 & \textbf{0.867} \\
+Perceptrón (MLP) & 0.717 & 0.850 \\
+Naive Bayes Gaussiano & 0.428 & 0.740 \\
+Árbol de Decisión & \textbf{0.758} & 0.693 \\
 \hline
 \end{tabular}
-}
-\label{tab:resultados}
+\label{tab:comparativa}
 \end{center}
 \end{table}
 
-\begin{figure}
-  \centering
-  \includegraphics[width=\columnwidth]{figuras/matriz_confusion_ArbolDecision_20260527_124833.png}
-  \caption{Matriz de confusión del modelo Árbol de Decisión en test}
-  \label{fig:mc-arbol}
+\textit{Análisis Crítico:} El uso de \textit{embeddings} latentes provoca un cambio drástico en el rendimiento de los algoritmos. El modelo k-Vecinos más Cercanos (kNN), que presentaba el peor desempeño
+ inicial, experimenta un resurgir extraordinario convirtiéndose en el mejor clasificador global (+0.109 de mejora en F1-macro). Este fenómeno se justifica teóricamente por la 
+ "maldición de la dimensionalidad": mientras que en un espacio disperso de 1437 variables binarias las distancias matemáticas pierden su significado discriminativo, la distancia euclídea sobre 64 
+ dimensiones densas refleja fielmente la verdadera proximidad estructural de los artículos en la red. Asimismo, modelos conexionistas como el MLP se benefician enormemente de las entradas continuas y 
+ densas, alcanzando un 0.850.
+
+En contraste, el Árbol de Decisión sufre un claro declive. Aunque este algoritmo sobresale trazando cortes ortogonales sobre variables binarias (presencia o ausencia de una palabra), resulta ineficiente
+ para establecer fronteras de decisión jerárquicas óptimas en un espacio latente continuo, viéndose superado por modelos no lineales basados en distancias.
+
+\begin{figure}[htbp]
+\centerline{\includegraphics[width=\linewidth]{figuras/matriz_confusion_kNN_Node2Vec.png}}
+\caption{Matriz de confusión obtenida para kNN utilizando embeddings de Node2Vec sobre el conjunto de prueba.}
+\label{fig:matriz_knn}
 \end{figure}
 
-\textit{Análisis Crítico Inicial:}
-El Árbol de Decisión obtiene, con diferencia, la mejor capacidad de generalización inicial (\textit{F1-macro} de 0.758). Esto sugiere que la altísima
-dispersión del texto combinada con los valores topológicos requiere de reglas de corte jerárquicas estrictas para discriminar la temática de los
-artículos, algo en lo que fallan modelos probabilísticos ingenuos (Naive Bayes) o basados puramente en distancia métrica (kNN). La matriz de confusión
-de la Fig.~\ref{fig:mc-arbol} demuestra que, gracias al ajuste por \textit{F1-macro}, el Árbol logra identificar competentemente las clases minoritarias.
-
-El deficiente desempeño de Naive Bayes observado en nuestros experimentos (F1-macro de 0.428) es consistente con los hallazgos de Sen et al. (2008), quienes también demostraron que este clasificador probabilístico se ve superado significativamente por otros modelos base al aplicarse sobre la red de citas Cora
-
-
+\textit{Análisis de Sobreajuste (Overfitting):} Para confirmar la capacidad de generalización del modelo base seleccionado y descartar problemas de sobreajuste, se analizó la brecha de rendimiento entre
+ la fase de validación cruzada y la fase de prueba. El Árbol de Decisión obtuvo un \textit{F1-macro} medio de 0.7477 durante la validación cruzada estratificada de 5 pliegues, frente al 0.7588 obtenido 
+ en el conjunto de prueba aislado. Esta mínima desviación confirma que la configuración de hiperparámetros elegida (criterio Gini, profundidad máxima de 20 y división mínima de 5 muestras) logra abstraer 
+ los patrones del dataset Cora sin memorizar el ruido de entrenamiento.
 
 
 \section{Conclusiones}
 
-El trabajo desarrollado hasta el momento permite concluir que la integración de propiedades estructurales (centralidad y comunidades) en un clasificador
-de particionado jerárquico establece una línea base robusta para la predicción temática en el dataset Cora, sorteando con éxito el desbalanceo de clases
-y la extrema dispersión de las variables nativas.
+El trabajo desarrollado permite concluir que la estructura matemática de los enlaces en redes de citación científica aporta una información predictiva fundamental que los modelos tradicionales ignoran.
+ Aunque la extracción manual de métricas estructurales (centralidad y comunidades) combinada con particionado jerárquico (Árboles de Decisión) establece una línea base sólida (F1-macro de 0.758), 
+ el aprendizaje de representaciones latentes demuestra ser inmensamente superior.
+
+Tras la optimización, \textbf{el modelo definitivo seleccionado es el clasificador k-Vecinos más Cercanos (kNN) alimentado con representaciones latentes generadas por Node2Vec}. Este enfoque logra
+ comprimir el espacio de características de 1437 variables a solo 64 dimensiones densas, mitigando la dispersión del texto y alcanzando un F1-macro sobresaliente de 0.867 en el conjunto de prueba, 
+ lo que supone una mejora de casi 11 puntos porcentuales respecto a la línea base.
 
 \textbf{Trabajo Futuro:}
-Para completar el modelado definitivo, los próximos pasos de la investigación se centrarán en dos hitos:
-
-\begin{enumerate}
-\item \textbf{Análisis de Correlaciones:} Se aplicarán pruebas estadísticas para filtrar el espacio de características. Este paso eliminará palabras o métricas ruidosas que puedan inducir sobreajuste en los modelos base.
-\item \textbf{Modelado Avanzado de Grafos:} Se explorará el aprendizaje de representaciones latentes en baja dimensión mediante la implementación de algoritmos específicos como \textit{Node2Vec}, con el objetivo de batir el rendimiento de la línea base actual.
-\end{enumerate}
+Para culminar el análisis relacional, los esfuerzos del próximo sprint se centrarán exclusivamente en la técnica de validación de atributos:
+\begin{itemize}
+    \item \textbf{Análisis de Correlaciones y Selección de Características:} Se aplicarán pruebas estadísticas sobre la matriz de 1437 características manuales originales. El objetivo será filtrar el 
+    ruido eliminando palabras poco informativas y evaluar si un modelo base altamente depurado es capaz de acercarse al rendimiento excepcional obtenido por el aprendizaje latente de Node2Vec.
+\end{itemize}
 
 \begin{thebibliography}{00}
 \bibitem{b1} P. Sen, G. Namata, M. Bilgic, L. Getoor, B. Gallagher, and T. Eliassi-Rad, "Collective Classification in Network Data," \textit{AI Magazine}, vol. 29, no. 3, pp. 93-106, 2008.
