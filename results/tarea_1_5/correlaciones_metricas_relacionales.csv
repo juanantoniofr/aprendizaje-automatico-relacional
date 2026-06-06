@@ -1,0 +1,4 @@
+feature_1,feature_2,pearson,spearman
+centralidad_grado,centralidad_betweenness,0.8746226008831508,0.7609512106908973
+centralidad_grado,coeficiente_clustering,-0.03571082612454752,0.3849078804210626
+centralidad_betweenness,coeficiente_clustering,-0.10383107834808125,-0.052525613069345375
