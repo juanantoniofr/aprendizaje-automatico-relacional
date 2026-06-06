@@ -1,0 +1,5 @@
+modelo,accuracy,precision_macro,recall_macro,f1_macro
+kNN,0.876,0.868,0.87,0.868
+MLP,0.856,0.845,0.856,0.848
+NaiveBayes,0.768,0.749,0.777,0.76
+ArbolDecision,0.71,0.693,0.687,0.689
