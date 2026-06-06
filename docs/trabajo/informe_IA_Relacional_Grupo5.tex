@@ -5,6 +5,7 @@
 
 % Inserción de gráficos
 \usepackage{graphicx}
+\graphicspath{{figuras/}{docs/trabajo/figuras/}}
 
 % Escritura de pseudocódigo
 \usepackage[kw]{pseudo}
@@ -48,12 +49,12 @@
   
   \and
   
-  \IEEEauthorblockN{Nombre y apellidos alumno 2}
+  \IEEEauthorblockN{Eulogio Reyes Díaz}
   \IEEEauthorblockA{
     \textit{Dpto. Ciencias de la Computación e Inteligencia Artificial}\\
     \textit{Universidad de Sevilla}\\
     Sevilla, España\\
-    Correos electrónicos UVUS y de contacto (si distinto)}
+    eulreydia@alum.us.es}
 }
 
 \maketitle
@@ -63,15 +64,17 @@
 
 % Resumen
 \begin{abstract}
-  Este documento presenta los avances preliminares en la construcción y evaluación de modelos
-  de aprendizaje automático relacional aplicados al conjunto de datos Cora. El objetivo 
-  principal es predecir la temática de artículos científicos combinando sus atributos 
-  textuales con características topológicas extraídas de su red de citas. Hasta la fase 
-  actual de desarrollo, se ha completado el análisis exploratorio, la extracción de métricas 
-  estructurales (centralidad, clustering y comunidades) y el establecimiento de una línea 
-  base de rendimiento mediante cuatro algoritmos clásicos de clasificación. Los resultados 
-  preliminares muestran que los Árboles de Decisión logran generalizar de manera competitiva 
-  frente a modelos conexionistas y probabilísticos.
+  Este trabajo presenta una investigación completa de clasificación relacional de nodos sobre el
+  dataset Cora, estructurada en ocho tareas consecutivas: análisis exploratorio, ingeniería de
+  características relacionales, validación estadística, modelado base, validación de
+  hiperparámetros, selección de modelo, control de limpieza/reproducibilidad y modelado con
+  embeddings Node2Vec. A partir de una línea base con 1437 variables manuales, se comparan cuatro
+  clasificadores clásicos mediante \textit{holdout} estratificado, \textit{GridSearchCV} y
+  validación cruzada de 5 pliegues. Los resultados muestran que la representación latente en 64
+  dimensiones mejora de forma sustancial el rendimiento global: el mejor modelo pasa de un
+  \textit{F1-macro} de 0.7588 (Árbol de Decisión) a 0.8680 (kNN + Node2Vec). El informe integra
+  evidencia cuantitativa, figuras de soporte y discusión metodológica para justificar la selección
+  final del modelo.
 \end{abstract}
 
 
@@ -83,210 +86,428 @@
 
 \section{Introducción}
 
-El análisis de datos estructurados en forma de red se ha convertido en un área de vital importancia 
-debido a la ubicuidad de los grafos en dominios como las redes sociales, biológicas y de comunicaciones.
-A diferencia del aprendizaje automático tradicional, que asume la independencia entre los ejemplos, 
-el aprendizaje relacional aprovecha las correlaciones inherentes en los enlaces entre nodos para mejorar
-la capacidad predictiva de los modelos.
+El análisis de datos estructurados en forma de red es una línea central del aprendizaje automático
+actual, debido a la presencia de grafos en dominios científicos, sociales y biológicos. A diferencia
+del aprendizaje supervisado clásico, donde las instancias se tratan como independientes, el aprendizaje
+relacional explota dependencias estructurales entre nodos conectados para mejorar la capacidad
+predictiva.
 
-En numerosos grafos del mundo real aparece el fenómeno conocido como *homofilia*, según el cual los nodos conectados tienden a compartir características similares. En redes de citas científicas como el dataset Cora, este comportamiento se manifiesta en que los artículos pertenecientes a una misma temática suelen citar trabajos relacionados del mismo ámbito de investigación.
+En numerosos grafos reales aparece el fenómeno de \textit{homofilia}: nodos conectados tienden a
+compartir propiedades similares. En redes de citación científica como Cora, esta propiedad se traduce
+en que publicaciones de una misma temática presentan patrones de citación afines.
 
-Esta propiedad resulta especialmente relevante en nuestro contexto, ya que permite aprovechar no solo las características individuales de cada nodo, sino también la información estructural derivada de sus conexiones. Las *Graph Neural Networks* (GNNs) explotan precisamente esta dependencia relacional mediante mecanismos de agregación de vecindario, propagando información entre nodos próximos del grafo para mejorar tareas como la clasificación de documentos.
+Este trabajo estudia esa estructura desde dos perspectivas complementarias: (i) características
+topológicas manuales calculadas con teoría de grafos y (ii) representaciones latentes aprendidas con
+Node2Vec. El objetivo es cuantificar en qué medida la codificación relacional incrementa el rendimiento
+de clasificadores clásicos de \textit{scikit-learn}.
 
-En este trabajo, se aborda el problema de la clasificación de nodos en redes de citación científica
-utilizando el conjunto de datos Cora. El enfoque adoptado consiste en la extracción manual de características
-topológicas para enriquecer las propiedades nativas de los documentos. El resto de este documento detalla los
-preliminares teóricos (Sección II), la metodología y decisiones de diseño adoptadas hasta la fecha (Sección III), 
-los resultados empíricos preliminares (Sección IV) y, finalmente, las conclusiones e hitos de trabajo futuro (Sección V).
+La contribución principal es una evaluación de extremo a extremo, organizada en ocho tareas, con
+trazabilidad completa de métricas y artefactos. La Sección II resume fundamentos y trabajo relacionado;
+la Sección III describe metodología y pipeline experimental; la Sección IV presenta resultados
+cuantitativos y análisis crítico; la Sección V discute implicaciones y limitaciones; y la Sección VI
+cierra con conclusiones y líneas futuras.
 
-\section{Preliminares}
-\subsection{Métodos empleados}
-Para la representación y procesamiento de los datos relacionales se ha empleado la librería de Python \textit{NetworkX}. 
-Específicamente, nos apoyamos en la teoría de grafos para calcular medidas topológicas de centralidad, densidad local
-(coeficiente de \textit{clustering}) y algoritmos de detección de comunidades para identificar subestructuras cohesivas.
-Para la etapa de modelado y clasificación, se ha empleado \textit{Scikit-Learn}, evaluando algoritmos basados en instancias
-(\textit{k-Vecinos más Cercanos}), particionado recursivo (\textit{Árboles de Decisión}), aproximaciones probabilísticas 
-(\textit{Naive Bayes} Gaussiano) y modelos conexionistas (\textit{Perceptrón Multicapa}).
-\subsection{Trabajo Relacionado}
+\section{Fundamentación y Trabajo Relacionado}
+\subsection{Marco teórico}
 
-Como referencia fundamental para nuestro enfoque, destaca el trabajo de Sen \textit{et al.} sobre clasificación colectiva en datos
-de redes, en el cual los autores emplean el conjunto de datos Cora para predecir la temática de los artículos basándose en 
-la correlación de sus enlaces y propiedades. Su investigación demuestra que aprovechar la estructura subyacente de la red 
-mejora significativamente el rendimiento frente a clasificadores tradicionales que tratan cada documento de forma independiente.
+Para el procesamiento estructural se utilizó \textit{NetworkX}, calculando centralidad de grado,
+centralidad de intermediación, coeficiente de \textit{clustering} y comunidades de Louvain. Para el
+modelado supervisado se empleó \textit{scikit-learn} con cuatro familias de clasificadores:
+\textit{k}-Vecinos más Cercanos, Árboles de Decisión, \textit{Naive Bayes} Gaussiano y Perceptron
+Multicapa.
 
-La clasificación de nodos en grafos constituye uno de los problemas más relevantes dentro del aprendizaje automático sobre estructuras 
-relacionales. A diferencia de los enfoques tradicionales de aprendizaje supervisado, donde cada instancia se considera de manera 
-independiente, en los grafos existe información adicional derivada de las relaciones entre nodos, lo que permite explotar dependencias 
-estructurales durante el proceso de aprendizaje.
+La literatura sobre clasificación de nodos distingue tres fuentes de señal: atributos del nodo,
+atributos del vecindario y etiquetas vecinas. En este trabajo se explotan de forma directa las dos
+primeras, evitando fugas de información de etiquetas en inferencia.
 
-En muchos grafos reales aparece el fenómeno conocido como \textit{homofilia}, según el cual los nodos conectados tienden a compartir 
-propiedades similares. En redes de citas científicas como el dataset Cora, esta propiedad se manifiesta en que artículos pertenecientes 
-a áreas temáticas similares suelen citar trabajos relacionados del mismo ámbito de investigación. Como consecuencia, la estructura del 
-grafo aporta información semántica complementaria a las características propias de cada nodo.
+\subsection{Trabajo relacionado}
 
-La clasificación de nodos puede abordarse explotando diferentes tipos de correlaciones presentes en la red. De forma general, 
-pueden distinguirse tres fuentes principales de información: (1) los atributos propios del nodo, (2) los atributos de los nodos vecinos 
-y (3) las etiquetas de los nodos vecinos. Mientras que los enfoques clásicos de aprendizaje automático se centran únicamente en las
-características individuales de cada instancia, los modelos basados en grafos incorporan además información contextual derivada de la 
-conectividad entre nodos.
+Como referencia fundamental, Sen \textit{et al.} \cite{b1} muestran que la estructura de red mejora
+la clasificación colectiva en Cora frente a enfoques puramente atributivos. En aprendizaje de
+representaciones, Node2Vec \cite{b3} propone caminatas sesgadas para capturar equivalencia
+estructural y homofilia en embeddings densos. En paralelismo, las arquitecturas GCN \cite{b4} y
+GraphSAGE \cite{b5} consolidan la propagación de mensajes como base de modelos neuronales sobre
+grafos.
 
-Las \textit{Graph Neural Networks} (GNNs) explotan precisamente estas dependencias relacionales mediante mecanismos de agregación y
-propagación de información entre vecinos, conocidos como \textit{message passing}. En este proceso, cada nodo actualiza iterativamente 
-su representación interna utilizando tanto sus propias características como la información agregada de su vecindario local.
-
-Entre las arquitecturas más relevantes destacan las \textit{Graph Convolutional Networks} (GCN), que introducen operaciones 
-convolucionales adaptadas a grafos mediante normalización de la matriz de adyacencia, y modelos posteriores como GraphSAGE, 
-que permiten generalizar el aprendizaje mediante funciones de agregación inductivas.
-
-En este trabajo se estudia el aprovechamiento de las dos primeras fuentes de correlación: los atributos propios 
-de cada nodo y los atributos de sus vecinos dentro de la estructura del grafo. Para ello se emplea el dataset Cora, ampliamente utilizado 
-como benchmark en tareas de clasificación de nodos sobre grafos homofílicos.
-
+Nuestro enfoque no implementa GNNs, pero se apoya en el mismo principio: la topología contiene
+información semántica complementaria. La ventaja práctica es mantener pipelines ligeros y
+reproducibles con herramientas clásicas, comparando de forma transparente características manuales
+frente a representaciones latentes.
 
 \section{Metodología}
 
+\subsection{Pipeline de trabajo (8 tareas)}
 
-\section*{A. Dataset Cora y Análisis Exploratorio}
+La investigación se ejecutó en ocho tareas consecutivas:
+\begin{itemize}
+    \item T1.3: EDA de Cora y caracterización inicial de distribuciones.
+    \item T1.4: extracción de características relacionales topológicas.
+    \item T1.5: validación estadística de asociación entre topología y clases.
+    \item T2.1: entrenamiento y evaluación de cuatro modelos base.
+    \item T2.2: validación de hiperparámetros y análisis de generalización.
+    \item T2.3: selección de modelo entre enfoques manuales y latentes.
+    \item T2.4: limpieza, consistencia y control de reproducibilidad.
+    \item T2.5: aprendizaje latente con Node2Vec y reevaluación completa.
+\end{itemize}
 
-El conjunto de datos Cora original consta de 2708 publicaciones científicas divididas en 7 clases temáticas, vinculadas mediante 5429 
-enlaces de citación. La matriz de propiedades nativas de los documentos está compuesta por un vocabulario binario de 1433 palabras.
+  La Tabla~\ref{tab:trazabilidad} resume la trazabilidad entre tareas, objetivos y salidas, lo que
+  permite auditar de forma directa el aporte de cada etapa al resultado final.
 
-El análisis exploratorio reveló una extrema dispersión en los datos textuales, con un 98.73\% de ceros y un promedio de solo 18.17 palabras
-clave presentes por artículo. Además, se evidenció un marcado desbalanceo de clases, siendo \textit{Neural\_Networks} la clase dominante 
-con 818 artículos, frente a temáticas marcadamente minoritarias como \textit{Rule\_Learning} con 180 instancias (Fig.~\ref{fig:dist-clases}).
+  \begin{table}[htbp]
+  \caption{Trazabilidad de tareas, objetivo y salida principal}
+  \centering
+  \begin{tabular}{p{0.09\columnwidth}p{0.33\columnwidth}p{0.44\columnwidth}}
+  \toprule
+  Tarea & Objetivo & Salida principal \\
+  \midrule
+  T1.3 & EDA del dataset Cora & Figuras de distribución de clases, palabras y grados \\
+  T1.4 & Ingeniería relacional & Matriz consolidada con 1437 variables \\
+  T1.5 & Validación estadística & CSV de Kruskal, correlaciones y asociación comunidad-clase \\
+  T2.1 & ínea base supervisada & étricas CV/test de 4 modelos y modelo base persistido \\
+  T2.2 & Validación de ajuste & Análisis de brecha CV-test y consistencia de selección \\
+  T2.3 & Selección final & Comparativa manual vs Node2Vec y elección del modelo definitivo \\
+  T2.4 & Control de limpieza & Homogeneización de semillas y estructura de artefactos \\
+  T2.5 & Embeddings relacionales & Métricas CV/test con Node2Vec y modelo final persistido \\
+  \bottomrule
+  \end{tabular}
+  \label{tab:trazabilidad}
+  \end{table}
 
-Asimismo, la distribución del número de palabras activas por documento (Fig.~\ref{fig:dist-palabras}) confirma la alta dispersión del espacio
-de atributos nativos, con una fuerte concentración en valores bajos.
+\subsection{Dataset Cora y análisis exploratorio}
+
+Cora contiene 2708 publicaciones, 5429 enlaces de citación y 7 clases temáticas. La matriz nativa tiene
+1433 atributos binarios de palabras clave. El EDA mostró un espacio extremadamente disperso (98.73\% de
+ceros, 18.17 palabras activas de media por documento) y desbalanceo de clases.
 
 \begin{figure}
   \centering
-  \includegraphics[width=\columnwidth]{figuras/distribucion_clases_cora.png}
-  \caption{Distribución de clases del dataset Cora}
+  \includegraphics[width=\columnwidth]{distribucion_clases_cora.png}
+  \caption{Distribución de clases del dataset Cora.}
   \label{fig:dist-clases}
 \end{figure}
 
 \begin{figure}
   \centering
-  \includegraphics[width=\columnwidth]{figuras/distribucion_palabras_por_articulo_cora.png}
-  \caption{Distribución de palabras activas por artículo en Cora}
+  \includegraphics[width=\columnwidth]{distribucion_palabras_por_articulo_cora.png}
+  \caption{Distribución de palabras activas por artículo en Cora.}
   \label{fig:dist-palabras}
 \end{figure}
 
-\section*{B. Arquitectura Usada y Extracción de Características}
-
-Para la representación matemática de la información, se tomó la decisión de diseño de modelar la red de citas como un grafo no dirigido. 
-Esta arquitectura de los datos permitió la fusión de forma natural de las citas recíprocas en 5278 aristas únicas y garantizó la 
-convergencia estructural para los algoritmos topológicos aplicados posteriormente. La distribución de grados observada en la red
-(Fig.~\ref{fig:dist-grados}) evidencia una topología heterogénea, coherente con la utilidad de métricas de centralidad para caracterizar
-la influencia estructural de cada nodo.
-
 \begin{figure}
   \centering
-  \includegraphics[width=\columnwidth]{figuras/distribucion_grados_cora.png}
-  \caption{Distribución de grados del grafo de citación Cora}
+  \includegraphics[width=\columnwidth]{distribucion_grados_cora.png}
+  \caption{Distribución de grados del grafo de citación Cora.}
   \label{fig:dist-grados}
 \end{figure}
 
-Para enriquecer la representación de cada publicación científica, se extrajeron tres métricas relacionales para cada nodo:
+\subsection{Ingeniería de características relacionales}
 
-\begin{itemize}
-    \item \textbf{Centralidad de Intermediación:} Elegida por su alta capacidad predictiva para identificar artículos que actúan 
-    como ``puentes'' de información entre diversas áreas temáticas.
-    
-    \item \textbf{Coeficiente de Clustering:} Calculado para medir la tendencia de las publicaciones a agruparse en vecindarios densos
-    interconectados.
-    
-    \item \textbf{Detección de Comunidades:} Se seleccionó el algoritmo de Louvain para agrupar latentemente el grafo, asignando a cada 
-    artículo un identificador de la comunidad subyacente descubierta basándose exclusivamente en los enlaces.
-\end{itemize}
+Se modelaron las citas como grafo no dirigido para consolidar conectividad local y obtener medidas
+estables para clasificación. Sobre cada nodo se calcularon: centralidad de grado, centralidad de
+intermediación, coeficiente de \textit{clustering} e identificador de comunidad Louvain.
 
-La arquitectura final de los datos de entrada consolidó las 1433 variables del texto con las nuevas características relacionales en una 
-única matriz.
+\begin{figure}
+  \centering
+  \includegraphics[width=\columnwidth]{subgrafo_nodo_mas_conectado_cora.png}
+  \caption{Subgrafo ego del nodo con mayor conectividad. Ilustra estructura local densa.}
+  \label{fig:subgrafo-max}
+\end{figure}
 
-\section*{C. Procedimiento de Entrenamiento}
+La matriz final manual combina 1433 atributos textuales y 4 relacionales (1437 variables). En
+paralelo, T2.5 aprende una codificación densa de 64 dimensiones con Node2Vec
+(\textit{walk\_length}=30, \textit{num\_walks}=200, \textit{dimensions}=64).
 
-Para asegurar una evaluación justa de la capacidad de generalización de los algoritmos de clasificación, el conjunto de datos se dividió
-utilizando la validación por retención (\textit{holdout}), reservando el 80\% de los ejemplos para el entrenamiento de los modelos 
-y el 20\% restante para las pruebas.
+\subsection{Protocolo experimental}
 
-Como decisión de diseño, se aplicó un muestreo estratificado durante esta partición para preservar la proporción real de 
-las clases y evitar sesgos derivados del desbalanceo del conjunto de datos.
+Se utilizó partición \textit{holdout} estratificada 80/20 y validación cruzada estratificada de
+5 pliegues en entrenamiento. La selección de hiperparámetros se realizó con \textit{GridSearchCV}
+optimizando \textit{F1-macro}. Se reportan \textit{accuracy}, precisión macro, recall macro y
+\textit{F1-macro}, priorizando esta última por el desbalance de clases.
 
-El ajuste óptimo de los hiperparámetros de los cuatro modelos base se estructuró mediante una búsqueda en rejilla (\textit{GridSearchCV}). 
-Durante este proceso, se aplicó una validación cruzada estratificada de 5 pliegues (5-fold cross validation) en el conjunto de 
-entrenamiento para estimar el rendimiento a priori y seleccionar de forma robusta la mejor configuración de cada algoritmo.
+\subsection{Configuraciones óptimas seleccionadas}
+
+La Tabla~\ref{tab:hiperparametros} documenta las configuraciones óptimas encontradas por
+\textit{GridSearchCV}. Esta tabla es clave para reproducibilidad y para interpretar por qué cambia el
+rendimiento al pasar de variables manuales a embeddings.
+
+\begin{table}[htbp]
+\caption{Mejores hiperparámetros por estrategia de representación}
+\centering
+\begin{tabular}{p{0.2\columnwidth}p{0.18\columnwidth}p{0.55\columnwidth}}
+\toprule
+Escenario & Modelo & Mejor configuración \\
+\midrule
+Manual & Árbol de Decisión & criterion=gini, max\_depth=20, min\_samples\_split=5 \\
+Manual & MLP & hidden\_layer\_sizes=(64), alpha=0.001, lr=0.01 \\
+Manual & NaiveBayes & var\_smoothing=$10^{-8}$ \\
+Manual & kNN & n\_neighbors=3, p=2, weights=distance \\
+Node2Vec & kNN & n\_neighbors=7, p=2, weights=distance \\
+Node2Vec & MLP & hidden\_layer\_sizes=(64), alpha=0.0001, lr=0.001 \\
+Node2Vec & NaiveBayes & var\_smoothing=$10^{-11}$ \\
+Node2Vec & Árbol de Decisión & criterion=gini, max\_depth=10, min\_samples\_split=5 \\
+\bottomrule
+\end{tabular}
+\label{tab:hiperparametros}
+\end{table}
 
 \section{Resultados}
 
-\subsection{Aprendizaje de Representaciones Latentes (Node2Vec)}
+\subsection{Modelos base con características manuales (T2.1)}
 
-Para superar las limitaciones impuestas por la altísima dispersión del espacio de atributos nativos (98.73\% de ceros), se procedió a implementar un enfoque de aprendizaje de representaciones latentes
- en baja dimensión. Específicamente, se utilizó el algoritmo \textit{Node2Vec}, el cual emplea caminatas aleatorias (\textit{random walks}) para capturar la estructura topológica del grafo y la 
- homofilia de la red, generando un \textit{embedding} denso de solo 64 dimensiones para cada nodo.
-
-Se aplicó la misma configuración experimental (validación cruzada de 5 pliegues y búsqueda en rejilla) sobre estas nuevas 64 variables continuas. Los resultados comparativos frente a la extracción manual
- de características se detallan en la Tabla \ref{tab:comparativa}.
+La Tabla~\ref{tab:t21} resume el rendimiento en test para las 1437 variables manuales. El Árbol de
+Decisión fue el mejor modelo base con \textit{F1-macro}=0.7588.
 
 \begin{table}[htbp]
-\caption{Comparativa de F1-macro: Características Manuales vs. Node2Vec}
-\begin{center}
-\begin{tabular}{|l|c|c|}
-\hline
-\textbf{Modelo} & \textbf{Manual (1437 var.)} & \textbf{Node2Vec (64 var.)} \\
-\hline
-k-Vecinos (kNN) & 0.416 & \textbf{0.867} \\
-Perceptrón (MLP) & 0.717 & 0.850 \\
-Naive Bayes Gaussiano & 0.428 & 0.740 \\
-Árbol de Decisión & \textbf{0.758} & 0.693 \\
-\hline
+\caption{Resultados en test para modelos base (T2.1, características manuales)}
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Modelo & Accuracy & Precision & Recall & F1-macro \\
+\midrule
+Árbol de Decisión & 0.7712 & 0.7628 & 0.7603 & \textbf{0.7588} \\
+MLP & 0.7306 & 0.7212 & 0.7179 & 0.7171 \\
+NaiveBayes & 0.4520 & 0.4380 & 0.4223 & 0.4281 \\
+kNN & 0.4225 & 0.4696 & 0.4063 & 0.4168 \\
+\bottomrule
 \end{tabular}
-\label{tab:comparativa}
-\end{center}
+\label{tab:t21}
 \end{table}
 
-\textit{Análisis Crítico:} El uso de \textit{embeddings} latentes provoca un cambio drástico en el rendimiento de los algoritmos. El modelo k-Vecinos más Cercanos (kNN), que presentaba el peor desempeño
- inicial, experimenta un resurgir extraordinario convirtiéndose en el mejor clasificador global (+0.109 de mejora en F1-macro). Este fenómeno se justifica teóricamente por la 
- "maldición de la dimensionalidad": mientras que en un espacio disperso de 1437 variables binarias las distancias matemáticas pierden su significado discriminativo, la distancia euclídea sobre 64 
- dimensiones densas refleja fielmente la verdadera proximidad estructural de los artículos en la red. Asimismo, modelos conexionistas como el MLP se benefician enormemente de las entradas continuas y 
- densas, alcanzando un 0.850.
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{matriz_confusion_ArbolDecision_20260527_124833.png}
+\caption{Matriz de confusion del mejor modelo base (Arbol de Decision, T2.1).}
+\label{fig:cm-arbol}
+\end{figure}
 
-En contraste, el Árbol de Decisión sufre un claro declive. Aunque este algoritmo sobresale trazando cortes ortogonales sobre variables binarias (presencia o ausencia de una palabra), resulta ineficiente
- para establecer fronteras de decisión jerárquicas óptimas en un espacio latente continuo, viéndose superado por modelos no lineales basados en distancias.
+Este bloque confirma que las características manuales aportan senal relacional util, pero tambien
+evidencia limitaciones de un espacio de entrada muy disperso para modelos basados en distancia.
+
+\subsection{Validación estadística relacional (T1.5)}
+
+Las pruebas no paramétricas de Kruskal-Wallis muestran diferencias significativas entre clases para
+las tres métricas relacionales (Tabla~\ref{tab:kruskal}).
+
+\begin{table}[htbp]
+\caption{Significancia por clase de métricas relacionales (T1.5)}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Métrica & Estadístico & p-valor \\
+\midrule
+Centralidad de grado & 45.3779 & $3.94\times10^{-8}$ \\
+Centralidad de intermediación & 24.2084 & $4.78\times10^{-4}$ \\
+Coeficiente de clustering & 29.8284 & $4.24\times10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\label{tab:kruskal}
+\end{table}
+
+Además, la asociación entre comunidades Louvain y clase es muy alta
+($\chi^2=9375.29$, $p<10^{-6}$, $V$ de Cramer $=0.7596$), lo que respalda que la estructura del
+grafo codifica información temática relevante. En correlaciones bivariadas, grado e intermediación
+presentan asociación fuerte (Pearson 0.8746; Spearman 0.7610), mientras que \textit{clustering}
+captura una señal complementaria menos colineal.
+
+\subsection{Representaciones latentes con Node2Vec (T2.5)}
+
+La Tabla~\ref{tab:comparativa} compara el rendimiento \textit{F1-macro} en test entre el enfoque
+manual y Node2Vec. La mejora más marcada aparece en kNN, que pasa de 0.4168 a 0.8680.
+
+\begin{table}[htbp]
+\caption{Comparativa de F1-macro en test: Manual (1437) vs Node2Vec (64)}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Modelo & Manual & Node2Vec \\
+\midrule
+kNN & 0.4168 & \textbf{0.8680} \\
+MLP & 0.7171 & 0.8480 \\
+NaiveBayes & 0.4281 & 0.7600 \\
+Árbol de Decisión & \textbf{0.7588} & 0.6890 \\
+\bottomrule
+\end{tabular}
+\label{tab:comparativa}
+\end{table}
 
 \begin{figure}[htbp]
-\centerline{\includegraphics[width=\linewidth]{figuras/matriz_confusion_kNN_Node2Vec.png}}
-\caption{Matriz de confusión obtenida para kNN utilizando embeddings de Node2Vec sobre el conjunto de prueba.}
+\centering
+\includegraphics[width=\columnwidth]{matriz_confusion_kNN_Node2Vec.png}
+\caption{Matriz de confusión del mejor modelo global (kNN + Node2Vec, T2.5).}
 \label{fig:matriz_knn}
 \end{figure}
 
-\textit{Análisis de Sobreajuste (Overfitting):} Para confirmar la capacidad de generalización del modelo base seleccionado y descartar problemas de sobreajuste, se analizó la brecha de rendimiento entre
- la fase de validación cruzada y la fase de prueba. El Árbol de Decisión obtuvo un \textit{F1-macro} medio de 0.7477 durante la validación cruzada estratificada de 5 pliegues, frente al 0.7588 obtenido 
- en el conjunto de prueba aislado. Esta mínima desviación confirma que la configuración de hiperparámetros elegida (criterio Gini, profundidad máxima de 20 y división mínima de 5 muestras) logra abstraer 
- los patrones del dataset Cora sin memorizar el ruido de entrenamiento.
+El cambio de ranking entre algoritmos es coherente con teoría: en espacios densos y de menor
+dimensión, la distancia euclídea recupera significado y beneficia a kNN; en cambio, el Árbol de
+Decisión pierde ventaja al dejar de operar sobre variables binarias de corte directo.
 
+\subsection{Generalización y selección final (T2.2-T2.3)}
+
+La selección final considera desempeño y estabilidad. En T2.1, la brecha entre CV y test del Árbol
+de Decisión fue pequeña (0.7477 en CV frente a 0.7588 en test). En T2.5, kNN obtuvo el mejor
+compromiso global (CV=0.8445, test=0.8680), con mejora absoluta de 0.1092 respecto al mejor baseline
+manual en test.
+
+En consecuencia, el modelo definitivo del proyecto es \textbf{kNN con embeddings Node2Vec},
+persistido en los artefactos de T2.5 y reutilizado en la tarea de selección final.
+
+\subsection{Comparativa CV vs Test en ambos escenarios}
+
+Para evitar sesgos por comparaciones parciales, la Tabla~\ref{tab:cv-test} alinea el
+\textit{F1-macro} de validación cruzada con el de test para todos los modelos en los dos escenarios.
+
+\begin{table}[htbp]
+\caption{Comparacion de generalizacion (CV vs Test)}
+\centering
+\begin{tabular}{lccc}
+\toprule
+Escenario-Modelo & F1-CV & F1-Test & Delta \\
+\midrule
+Manual-ArbolDecision & 0.7477 & 0.7588 & +0.0111 \\
+Manual-MLP & 0.7057 & 0.7171 & +0.0114 \\
+Manual-NaiveBayes & 0.4081 & 0.4281 & +0.0200 \\
+Manual-kNN & 0.3897 & 0.4168 & +0.0271 \\
+Node2Vec-kNN & 0.8445 & 0.8680 & +0.0235 \\
+Node2Vec-MLP & 0.8396 & 0.8480 & +0.0084 \\
+Node2Vec-NaiveBayes & 0.7645 & 0.7600 & -0.0045 \\
+Node2Vec-ArbolDecision & 0.6749 & 0.6890 & +0.0141 \\
+\bottomrule
+\end{tabular}
+\label{tab:cv-test}
+\end{table}
+
+Los deltas moderados indican ausencia de sobreajuste severo en el conjunto de configuraciones
+seleccionadas. La única caída pequeña (NaiveBayes con Node2Vec) se mantiene dentro de un margen
+reducido y no compromete la conclusión principal del estudio.
+
+\subsection{Análisis por clases del modelo final}
+
+La matriz de confusión de la Fig.~\ref{fig:matriz_knn} muestra una diagonal dominante en casi todas
+las clases. Cualitativamente, las categorías con patrones más específicos de citación (por ejemplo,
+\textit{Case\_Based} y \textit{Genetic\_Algorithms}) aparecen con menor confusión cruzada, mientras
+que clases conceptualmente cercanas (como \textit{Theory} y \textit{Neural\_Networks}) concentran
+errores residuales. Este patrón es consistente con la intuición de que Node2Vec preserva vecindades
+estructurales y mejora especialmente donde la homofilia local es más fuerte.
+
+\section{Discusión}
+
+Los resultados validan la hipótesis central del trabajo: la topología de citas de Cora aporta
+información discriminativa que no queda plenamente capturada por los atributos textuales binarios.
+La evidencia estadística de T1.5 y la ganancia de rendimiento de T2.5 convergen en esa conclusión.
+
+Desde una perspectiva metodológica, el pipeline en ocho tareas permitió separar claramente
+construcción de características, entrenamiento, validación y selección, reduciendo decisiones ad hoc.
+Este desacoplamiento facilita trazabilidad, comparabilidad entre enfoques y mantenimiento del código.
+
+Como limitación, la tarea T1.5 no fue reejecutada en la sesión final, aunque sus salidas están
+persistidas en CSV y fueron utilizadas para el análisis. Por ello, la reproducibilidad inmediata de
+esa tarea queda condicionada a un rerun de notebook en entorno limpio, mientras que T2.1-T2.5
+mantienen artefactos consistentes y verificables.
+
+Finalmente, aunque el enfoque actual evita la complejidad de GNNs, los resultados sugieren que una
+comparativa futura con GCN y GraphSAGE podría cuantificar la brecha entre modelos clásicos con
+embeddings y arquitecturas neuronales sobre grafos.
+
+\subsection{Lectura integrada de los ocho hitos}
+
+Una aportación relevante de este trabajo no es solo el resultado final, sino la secuencia de
+decisiones experimentales. T1.3 y T1.4 establecen el contexto de dificultad: alta sparsidad en
+atributos textuales y estructura de grafo con heterogeneidad de conectividad. Esta combinación explica
+por qué un enfoque puramente lexical suele degradarse en clases minoritarias.
+
+T1.5 actúa como puente inferencial entre análisis descriptivo y modelado: al confirmar diferencias
+estadísticamente significativas entre clases en métricas relacionales, legitima que la topología se
+incorpore como parte del espacio predictivo y no solo como visualización exploratoria. T2.1 y T2.2,
+en cambio, definen una línea base robusta con controles de generalización y evitan seleccionar por una
+única métrica puntual.
+
+La pareja T2.3-T2.5 cierra el ciclo de investigación con una comparativa directa entre dos
+representaciones de datos. Esta comparativa es metodológicamente fuerte porque mantiene constantes
+partición, métrica objetivo y familia de modelos, alterando solo la codificación de entrada. En esas
+condiciones, la mejora de kNN se puede atribuir principalmente a la calidad del embedding y no a un
+cambio de protocolo de evaluación.
+
+En términos de diseño experimental, T2.4 garantiza que el resultado sea defendible: convenciones de
+guardado, semillas y consistencia de scripts reducen fragilidad del proceso y permiten trazabilidad
+para revisiones externas o futuras iteraciones del proyecto.
+
+\subsection{Implicaciones prácticas y transferencia}
+
+Los hallazgos tienen implicaciones claras para escenarios reales de minería de literatura científica.
+Cuando el texto está representado por vectores binarios de alta dimensión, la distancia entre
+documentos puede volverse poco informativa. El uso de embeddings topológicos densos permite recuperar
+una noción de vecindad útil para tareas de clasificación, recomendación de lecturas relacionadas y
+apoyo a sistemas de descubrimiento de conocimiento.
+
+Además, la mejora observada no depende de arquitecturas profundas complejas: se obtiene con pipelines
+ligeros y modelos clásicos de coste computacional moderado. Esto abre una vía pragmática para equipos
+que necesitan soluciones explicables, con menor coste de mantenimiento y con infraestructura de
+ejecución limitada frente a despliegues de GNN a gran escala.
+
+Desde una perspectiva de gobierno del dato, la separación entre artefactos por tarea facilita auditoría
+y control de versiones de modelos. Este enfoque es particularmente útil en entornos académicos o
+institucionales donde la justificabilidad del resultado es tan importante como la métrica alcanzada.
+
+\subsection{Línea de validación futura}
+
+Para reforzar el cierre científico del trabajo, la siguiente iteración debería priorizar tres bloques.
+Primero, validación estadística entre clasificadores finales con test pareados sobre predicciones para
+confirmar si la mejora de Node2Vec es estadísticamente significativa muestra a muestra. Segundo,
+evaluación de robustez bajo particiones repetidas o \textit{repeated stratified k-fold} para medir
+variabilidad de desempeño y sensibilidad a la muestra de entrenamiento. Tercero, comparativa externa en
+otros benchmarks de citación con propiedades topológicas distintas para evaluar transferencia.
+
+También es recomendable incorporar métricas orientadas a clase minoritaria, como \textit{macro recall}
+objetivo o curvas precision-recall por etiqueta, cuando el uso final penalice especialmente falsos
+negativos en categorías poco frecuentes. Esta extensión convertiría el pipeline actual en una base más
+próxima a un flujo de \textit{MLOps} para grafos académicos.
+
+\section{Reproducibilidad y Amenazas a la Validez}
+
+\subsection{Reproducibilidad experimental}
+
+El pipeline mantiene semillas fijas (\textit{random\_state}=42) y estructura de artefactos por
+timestamp para facilitar reruns y auditoría. Las métricas de T2.1 y T2.5 se recuperan desde CSVs
+persistidos, y los modelos seleccionados se almacenan en formato \textit{joblib}. Esta estrategia
+reduce riesgo de pérdida de contexto y permite reconstruir el flujo de decisiones desde datos crudos
+hasta modelo final.
+
+\subsection{Amenazas a la validez}
+
+Se identifican cuatro riesgos principales. Primero, validez interna: la tarea T1.5 no fue reejecutada
+en la sesión final y su análisis depende de salidas persistidas. Segundo, validez externa: Cora es un
+benchmark pequeño y homofílico; resultados pueden variar en grafos heterofílicos. Tercero, validez de
+constructo: se evaluan métricas macroagregadas y no costos de error específicos por clase para un
+dominio de aplicación concreto. Cuarto, validez estadística: no se aplicaron pruebas de significancia
+entre clasificadores finales (por ejemplo, test de McNemar), por lo que la comparativa se centra en
+magnitudes de desempeño y consistencia CV-test.
 
 \section{Conclusiones}
 
-El trabajo desarrollado permite concluir que la estructura matemática de los enlaces en redes de citación científica aporta una información predictiva fundamental que los modelos tradicionales ignoran.
- Aunque la extracción manual de métricas estructurales (centralidad y comunidades) combinada con particionado jerárquico (Árboles de Decisión) establece una línea base sólida (F1-macro de 0.758), 
- el aprendizaje de representaciones latentes demuestra ser inmensamente superior.
+El estudio completo sobre Cora confirma tres hallazgos: (i) las características relacionales manuales
+proporcionan una base competitiva, (ii) la validación estadística respalda la asociación entre
+estructura de grafo y clase temática, y (iii) el aprendizaje de representaciones latentes con
+Node2Vec produce la mejora de rendimiento más relevante del proyecto.
 
-Tras la optimización, \textbf{el modelo definitivo seleccionado es el clasificador k-Vecinos más Cercanos (kNN) alimentado con representaciones latentes generadas por Node2Vec}. Este enfoque logra
- comprimir el espacio de características de 1437 variables a solo 64 dimensiones densas, mitigando la dispersión del texto y alcanzando un F1-macro sobresaliente de 0.867 en el conjunto de prueba, 
- lo que supone una mejora de casi 11 puntos porcentuales respecto a la línea base.
+El mejor baseline manual fue Árbol de Decisión con \textit{F1-macro}=0.7588, mientras que el modelo
+final kNN + Node2Vec alcanzó 0.8680 en test. Esta diferencia demuestra que comprimir un espacio
+binario muy disperso en embeddings densos de 64 dimensiones beneficia significativamente la
+separabilidad de clases.
 
-\textbf{Trabajo Futuro:}
-Para culminar el análisis relacional, los esfuerzos del próximo sprint se centrarán exclusivamente en la técnica de validación de atributos:
-\begin{itemize}
-    \item \textbf{Análisis de Correlaciones y Selección de Características:} Se aplicarán pruebas estadísticas sobre la matriz de 1437 características manuales originales. El objetivo será filtrar el 
-    ruido eliminando palabras poco informativas y evaluar si un modelo base altamente depurado es capaz de acercarse al rendimiento excepcional obtenido por el aprendizaje latente de Node2Vec.
-\end{itemize}
+Como trabajo futuro inmediato se plantea: comparar con GCN/GraphSAGE, ampliar evaluación a otros
+datasets de citación (por ejemplo CiteSeer y PubMed), y estudiar calibración/probabilidades para
+despliegue en escenarios de soporte a revisión bibliográfica.
 
 \begin{thebibliography}{00}
 \bibitem{b1} P. Sen, G. Namata, M. Bilgic, L. Getoor, B. Gallagher, and T. Eliassi-Rad, "Collective Classification in Network Data," \textit{AI Magazine}, vol. 29, no. 3, pp. 93-106, 2008.
 \bibitem{b2} S. Fortunato, "Community detection in graphs," \textit{Physics Reports}, vol. 486, no. 3-5, pp. 75-174, 2010.
-
+\bibitem{b3} A. Grover and J. Leskovec, "node2vec: Scalable feature learning for networks," in \textit{Proc. ACM SIGKDD}, 2016, pp. 855-864.
+\bibitem{b4} T. N. Kipf and M. Welling, "Semi-supervised classification with graph convolutional networks," in \textit{Proc. ICLR}, 2017.
+\bibitem{b5} W. L. Hamilton, R. Ying, and J. Leskovec, "Inductive representation learning on large graphs," in \textit{Proc. NeurIPS}, 2017, pp. 1024-1034.
+\bibitem{b6} F. Pedregosa \textit{et al.}, "Scikit-learn: Machine learning in Python," \textit{JMLR}, vol. 12, pp. 2825-2830, 2011.
+\bibitem{b7} A. A. Hagberg, D. A. Schult, and P. J. Swart, "Exploring network structure, dynamics, and function using NetworkX," in \textit{Proc. SciPy}, 2008, pp. 11-15.
+\bibitem{b8} M. E. J. Newman, \textit{Networks: An Introduction}. Oxford, U.K.: Oxford Univ. Press, 2010.
+\bibitem{b9} D. Liben-Nowell and J. Kleinberg, "The link-prediction problem for social networks," \textit{J. Amer. Soc. Inf. Sci. Technol.}, vol. 58, no. 7, pp. 1019-1031, 2007.
+\bibitem{b10} J. Tang, J. Zhang, L. Yao, J. Li, L. Zhang, and Z. Su, "ArnetMiner: Extraction and mining of academic social networks," in \textit{Proc. ACM SIGKDD}, 2008, pp. 990-998.
 \end{thebibliography}
-
-
 \end{document}
