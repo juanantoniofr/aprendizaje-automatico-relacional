@@ -5,6 +5,9 @@ El objetivo principal de esta etapa es realizar la **construcción manual de _fe
 Específicamente, se exige extraer métricas basadas en tres conceptos clave de la teoría de grafos:
 
 - 1. **Centralidad:** Mide la importancia de un nodo en la red. Dependiendo de la función que usemos en `NetworkX`, podemos medir la centralidad de grado (_degree_), la de cercanía (_closeness_) o la de intermediación (_betweenness_).
+  - _degree_: Número de conexiones directas que tiene un nodo (número de citas recibidas).
+  - _closeness_: Mide la distancia promedio de un nodo a todos los demás nodos, indicando qué tan cerca está de otros artículos en la red.
+  - _betweenness_: Mide la cantidad de veces que un nodo actúa como puente a lo largo de los caminos más cortos entre otros nodos, indicando su papel como intermediario en la difusión de información.
 - 2. **Coeficiente de clustering:** Mide la tendencia de los nodos a agruparse en triángulos o vecindarios densos.
 - 3. **Detección de comunidades:** Sirve para agrupar las publicaciones en clústeres fuertemente conectados (se pueden usar métodos como _Louvain_, _Girvan-Newman_ o _Walktrap_).
 
@@ -22,3 +25,5 @@ Necesitamos lo siguiente sobre el resultado de la Tarea 1.3:
 - ¿por qué hemos elegido un grafo no dirigido para representar la red de citas?
 
 Tener un grafo no dirigido simplifica el cálculo y es el tipo de grafo ideal (y en algunos casos, un requisito estricto) para que funcionen los algoritmos de detección de comunidades y el coeficiente de clustering de NetworkX.
+
+- explica la pradoja de los hubs (nodos con alta centralidad) en relación con el coeficiente de clustering.
