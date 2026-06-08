@@ -259,6 +259,52 @@ La matriz final manual combina 1433 atributos textuales y 4 relacionales (1437 v
 
 \subsection{Análisis de correlaciones}
 
+Con el objetivo de estudiar la utilidad de las características relacionales antes de la fase de modelado, se realizó un análisis de correlación y asociación sobre las variables extraídas en la etapa anterior. Se analizaron por separado las métricas relacionales numéricas ---centralidad de grado, centralidad de intermediación y coeficiente de \textit{clustering}--- y la variable categórica de comunidad obtenida mediante Louvain.
+
+En primer lugar, se calcularon las correlaciones de Pearson y Spearman entre las métricas relacionales numéricas. La correlación más elevada aparece entre la centralidad de grado y la centralidad de intermediación, con un valor de Pearson de 0.8746 y de Spearman de 0.7610. Esto indica que los nodos con mayor número de conexiones tienden también a ocupar posiciones relevantes como puentes dentro del grafo. No obstante, esta relación no implica una equivalencia total entre ambas variables, ya que la centralidad de grado mide conectividad directa, mientras que la intermediación mide la participación del nodo en caminos entre otros nodos.
+
+\begin{table}[htbp]
+\caption{Correlaciones entre métricas relacionales numéricas}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Par de variables & Pearson & Spearman \\
+\midrule
+Grado -- Betweenness & 0.8746 & 0.7610 \\
+Grado -- Clustering & -0.0357 & 0.3849 \\
+Betweenness -- Clustering & -0.1038 & -0.0525 \\
+\bottomrule
+\end{tabular}
+\label{tab:correlaciones-relacionales}
+\end{table}
+
+El coeficiente de \textit{clustering}, por el contrario, presenta correlaciones lineales muy bajas con el resto de métricas. Su correlación de Spearman con la centralidad de grado es moderada, pero no existe una dependencia lineal clara. Esto sugiere que el \textit{clustering} aporta una perspectiva estructural diferente, relacionada con la densidad local del vecindario del nodo, por lo que no se considera una variable redundante.
+
+A continuación, se estudió si las métricas relacionales presentaban diferencias significativas entre las clases temáticas de los artículos. Dado que las distribuciones de estas métricas son muy asimétricas y contienen valores atípicos, se empleó el test no paramétrico de Kruskal-Wallis. Los resultados muestran diferencias estadísticamente significativas para las tres métricas, con valores $p$ inferiores a 0.05 en todos los casos.
+
+\begin{table}[htbp]
+\caption{Test de Kruskal-Wallis por clase}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Métrica & Estadístico & $p$-valor \\
+\midrule
+Centralidad de grado & 45.3779 & $3.94 \times 10^{-8}$ \\
+Betweenness & 24.2084 & $4.78 \times 10^{-4}$ \\
+Clustering & 29.8284 & $4.24 \times 10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\label{tab:kruskal-relacionales}
+\end{table}
+
+Estos resultados indican que las propiedades topológicas de los nodos no se distribuyen de forma idéntica entre las siete categorías del dataset Cora. Aunque existe solapamiento entre clases, algunas categorías tienden a presentar valores distintos de conectividad, intermediación o cohesión local, lo que justifica conservar estas variables para los modelos supervisados.
+
+Finalmente, se analizó la relación entre la comunidad detectada por Louvain y la clase real del artículo. Como ambas variables son categóricas, se utilizó una tabla de contingencia junto con un test chi-cuadrado de independencia. El resultado fue un estadístico $\chi^2 = 9375.2864$, con un $p$-valor numéricamente igual a 0.0, por lo que se rechaza la hipótesis de independencia entre comunidad y clase. Además, el coeficiente V de Cramér obtuvo un valor de 0.7596, lo que refleja una asociación fuerte entre ambas variables.
+
+Este resultado es especialmente relevante, ya que muestra que las comunidades detectadas únicamente a partir de la estructura de citas guardan una relación clara con las categorías temáticas reales. En otras palabras, el grafo de citas contiene información semántica útil: los artículos de una misma clase tienden a agruparse en comunidades topológicamente próximas.
+
+A partir de este análisis se decidió conservar inicialmente las cuatro características relacionales: centralidad de grado, centralidad de intermediación, coeficiente de \textit{clustering} y comunidad Louvain. Aunque grado e intermediación presentan una correlación alta, ambas capturan aspectos estructurales distintos del grafo. La utilidad real de estas variables se evaluará posteriormente mediante los modelos de clasificación y la validación cruzada.
+
 \subsection{Protocolo experimental}
 
 El marco de validación se diseñó para garantizar la generalización de los modelos y evitar fugas de información (*data leakage*). En primer lugar, se construyó un espacio de entrada consolidado de 1437 variables predictivas, combinando los atributos 
