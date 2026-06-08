@@ -1,0 +1,14 @@
+{
+  "timestamp": "20260527_124833",
+  "dataset_fuente": "Reconstruido desde cora.content + cora.cites",
+  "random_state": 42,
+  "modelo_ganador": "ArbolDecision",
+  "ruta_figura_confusion": "/mnt/vms/aprendizaje-automatico-relacional/docs/trabajo/figuras/matriz_confusion_ArbolDecision_20260527_124833.png",
+  "metricas_modelo_ganador": {
+    "modelo": "ArbolDecision",
+    "accuracy": 0.7712177121771218,
+    "precision_macro": 0.7627572785434565,
+    "recall_macro": 0.7602812499550776,
+    "f1_macro": 0.7587957177301675
+  }
+}
