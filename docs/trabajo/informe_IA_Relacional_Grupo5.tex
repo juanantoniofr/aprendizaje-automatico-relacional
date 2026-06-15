@@ -143,8 +143,8 @@ frente a representaciones latentes.
 La investigación se ejecutó en ocho tareas consecutivas:
 \begin{itemize}
     \item T1: Análisis exploratorio de datos Cora y caracterización inicial de distribuciones.
-    \item T1.4: extracción de características relacionales topológicas.
-    \item T1.5: validación estadística de asociación entre topología y clases.
+    \item T2: extracción de características relacionales topológicas.
+    \item T3: validación estadística de asociación entre topología y clases.
     \item T2.1: entrenamiento y evaluación de cuatro modelos base.
     \item T2.2: validación de hiperparámetros y análisis de generalización.
     \item T2.3: selección de modelo entre enfoques manuales y latentes.
@@ -163,8 +163,8 @@ La investigación se ejecutó en ocho tareas consecutivas:
   Tarea & Objetivo & Salida principal \\
   \midrule
   T1 & Análisis exploratorio de datos Cora & Figuras de distribución de clases, palabras y grados \\
-  T1.4 & Ingeniería relacional & Matriz consolidada con 1437 variables \\
-  T1.5 & Validación estadística & CSV de Kruskal, correlaciones y asociación comunidad-clase \\
+  T2 & Ingeniería relacional & Matriz consolidada con 1437 variables \\
+  T3 & Validación estadística & CSV de Kruskal, correlaciones y asociación comunidad-clase \\
   T2.1 & ínea base supervisada & étricas CV/test de 4 modelos y modelo base persistido \\
   T2.2 & Validación de ajuste & Análisis de brecha CV-test y consistencia de selección \\
   T2.3 & Selección final & Comparativa manual vs Node2Vec y elección del modelo definitivo \\
@@ -514,7 +514,7 @@ kNN & 0.4225 & 0.4696 & 0.4063 & 0.4168 \\
 \end{figure}
 
 
-\subsection{Validación estadística relacional (T1.5)}
+\subsection{Validación estadística relacional (T3)}
 
 Las pruebas no paramétricas de Kruskal-Wallis muestran diferencias significativas entre clases para las tres métricas relacionales (Tabla~\ref{tab:kruskal}).
 
@@ -522,7 +522,7 @@ Además, la asociación entre comunidades Louvain y clase es muy alta ($\chi^2=9
 grafo codifica información temática relevante. En correlaciones bivariadas, grado e intermediación presentan asociación fuerte (Pearson 0.8746; Spearman 0.7610), mientras que \textit{clustering} captura una señal complementaria menos colineal.
 
 \begin{table}[htbp]
-\caption{Significancia por clase de métricas relacionales (T1.5)}
+\caption{Significancia por clase de métricas relacionales (T3)}
 \centering
 \begin{tabular}{lcc}
 \toprule
@@ -606,7 +606,7 @@ que clases conceptualmente cercanas (como \textit{Theory} y \textit{Neural\_Netw
 
 Los resultados validan la hipótesis central del trabajo: la topología de citas de Cora aporta
 información discriminativa que no queda plenamente capturada por los atributos textuales binarios.
-La evidencia estadística de T1.5 y la ganancia de rendimiento de T2.5 convergen en esa conclusión.
+La evidencia estadística de T3 y la ganancia de rendimiento de T2.5 convergen en esa conclusión.
 
 Desde una perspectiva metodológica, el pipeline en ocho tareas permitió separar claramente
 construcción de características, entrenamiento, validación y selección, reduciendo decisiones ad hoc.
@@ -619,11 +619,11 @@ embeddings y arquitecturas neuronales sobre grafos.
 \subsection{Lectura integrada de los ocho hitos}
 
 Una aportación relevante de este trabajo no es solo el resultado final, sino la secuencia de
-decisiones experimentales. T1 y T1.4 establecen el contexto de dificultad: alta sparsidad en
+decisiones experimentales. T1 y T2 establecen el contexto de dificultad: alta sparsidad en
 atributos textuales y estructura de grafo con heterogeneidad de conectividad. Esta combinación explica
 por qué un enfoque puramente lexical suele degradarse en clases minoritarias.
 
-T1.5 actúa como puente inferencial entre análisis descriptivo y modelado: al confirmar diferencias
+T3 actúa como puente inferencial entre análisis descriptivo y modelado: al confirmar diferencias
 estadísticamente significativas entre clases en métricas relacionales, legitima que la topología se
 incorpore como parte del espacio predictivo y no solo como visualización exploratoria. T2.1 y T2.2,
 en cambio, definen una línea base robusta con controles de generalización y evitan seleccionar por una
