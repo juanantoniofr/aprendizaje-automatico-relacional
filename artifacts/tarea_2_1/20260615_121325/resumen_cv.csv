@@ -1,0 +1,6 @@
+modelo,best_cv_f1_macro,best_params
+MLP,0.8117036484520316,"{'clf__alpha': 0.001, 'clf__hidden_layer_sizes': (128,), 'clf__learning_rate_init': 0.001}"
+RandomForest,0.8100673666823001,"{'clf__max_depth': None, 'clf__n_estimators': 100}"
+NaiveBayes_Bernoulli,0.8026669635339925,{'clf__alpha': 0.1}
+ArbolDecision,0.7344808270833442,"{'clf__criterion': 'gini', 'clf__max_depth': None, 'clf__min_samples_split': 2}"
+kNN,0.5324875822395367,"{'clf__n_neighbors': 3, 'clf__p': 1, 'clf__weights': 'distance'}"

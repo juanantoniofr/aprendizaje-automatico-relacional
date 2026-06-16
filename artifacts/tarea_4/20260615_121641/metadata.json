@@ -1,0 +1,14 @@
+{
+  "timestamp": "20260615_121641",
+  "dataset_fuente": "CSV consolidado: cora_features_completas.csv",
+  "random_state": 42,
+  "modelo_ganador": "RandomForest",
+  "ruta_figura_confusion": "/mnt/vms/aprendizaje-automatico-relacional/docs/trabajo/figuras/matriz_confusion_RandomForest_20260615_121641.png",
+  "metricas_modelo_ganador": {
+    "modelo": "RandomForest",
+    "accuracy": 0.8487084870848709,
+    "precision_macro": 0.8489538891846852,
+    "recall_macro": 0.8246370281899865,
+    "f1_macro": 0.8344795582253777
+  }
+}
